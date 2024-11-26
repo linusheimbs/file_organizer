@@ -3,109 +3,82 @@ import shutil
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
-# File type categories
-FILE_CATEGORIES = {
-    "Images": [".jpg", ".jpeg", ".png", ".gif", ".bmp"],
-    "Videos": [".mp4", ".mkv", ".avi", ".mov"],
-    "Documents": [".pdf", ".doc", ".docx", ".xls", ".xlsx", ".txt"],
-    "Audio": [".mp3", ".wav", ".aac"],
-    "Archives": [".zip", ".rar", ".7z", ".tar"],
-    "Programs": [".exe", ".msi", ".dmg"],
-    "Others": []
-}
 
-
-def organize_files(source_folder, target_folder):
+def sort_files(source_folder, target_folder, keyword=None):
     try:
-        # Ensure the target folder exists
+        # Create target folder if it doesn't exist
         os.makedirs(target_folder, exist_ok=True)
 
-        # Scan all files in the source folder
-        for item in os.listdir(source_folder):
-            item_path = os.path.join(source_folder, item)
+        files_moved = 0
+
+        # Loop through all files in the source folder
+        for filename in os.listdir(source_folder):
+            source_path = os.path.join(source_folder, filename)
 
             # Skip directories
-            if os.path.isdir(item_path):
+            if os.path.isdir(source_path):
                 continue
 
-            # Get file extension
-            _, ext = os.path.splitext(item)
+            # Move files by keyword if provided
+            if keyword:
+                if keyword.lower() in filename.lower():
+                    shutil.move(source_path, os.path.join(target_folder, filename))
+                    files_moved += 1
+            # Otherwise, sort by file type
+            else:
+                file_extension = os.path.splitext(filename)[1].lower()
+                folder_by_type = os.path.join(target_folder, file_extension[1:] if file_extension else "other")
+                os.makedirs(folder_by_type, exist_ok=True)
+                shutil.move(source_path, os.path.join(folder_by_type, filename))
+                files_moved += 1
 
-            # Find the category for the file
-            moved = False
-            for category, extensions in FILE_CATEGORIES.items():
-                if ext.lower() in extensions:
-                    move_file(item_path, target_folder, category)
-                    moved = True
-                    break
-
-            # If no matching category, move to "Others"
-            if not moved:
-                move_file(item_path, target_folder, "Others")
-
-        messagebox.showinfo("Success", f"Files sorted successfully into {target_folder}")
+        messagebox.showinfo("Success", f"{files_moved} file(s) moved successfully!")
     except Exception as e:
-        messagebox.showerror("Error", f"An error occurred: {str(e)}")
+        messagebox.showerror("Error", str(e))
 
 
-def move_file(file_path, target_folder, category):
-    # Create category folder in the target folder if it doesn't exist
-    category_folder = os.path.join(target_folder, category)
-    os.makedirs(category_folder, exist_ok=True)
-
-    # Move file to the category folder
-    shutil.move(file_path, category_folder)
-
-
-def select_source_folder():
-    folder = filedialog.askdirectory(title="Select Source Folder")
+def browse_folder(entry_field):
+    folder = filedialog.askdirectory()
     if folder:
-        source_entry.delete(0, tk.END)
-        source_entry.insert(0, folder)
+        entry_field.delete(0, tk.END)
+        entry_field.insert(0, folder)
 
 
-def select_target_folder():
-    folder = filedialog.askdirectory(title="Select Target Folder")
-    if folder:
-        target_entry.delete(0, tk.END)
-        target_entry.insert(0, folder)
-
-
-def start_organizing():
+def run_sorter():
     source_folder = source_entry.get()
     target_folder = target_entry.get()
+    keyword = keyword_entry.get().strip()
+
     if not source_folder or not target_folder:
-        messagebox.showwarning("Missing Information", "Please select both source and target folders.")
+        messagebox.showwarning("Input Error", "Please select both source and target folders.")
         return
 
-    if not os.path.exists(source_folder):
-        messagebox.showerror("Invalid Folder", "The source folder does not exist.")
-        return
-
-    organize_files(source_folder, target_folder)
+    sort_files(source_folder, target_folder, keyword if keyword else None)
 
 
-# Create the main UI window
+# Create the GUI
 root = tk.Tk()
-root.title("File Organizer")
+root.title("File Sorting Program")
 
-# Source folder selection
-tk.Label(root, text="Source Folder:").grid(row=0, column=0, padx=10, pady=10, sticky="w")
+# Source folder
+tk.Label(root, text="Source Folder:").grid(row=0, column=0, padx=10, pady=5, sticky="e")
 source_entry = tk.Entry(root, width=50)
-source_entry.grid(row=0, column=1, padx=10, pady=10)
-source_button = tk.Button(root, text="Browse", command=select_source_folder)
-source_button.grid(row=0, column=2, padx=10, pady=10)
+source_entry.grid(row=0, column=1, padx=10, pady=5)
+tk.Button(root, text="Browse", command=lambda: browse_folder(source_entry)).grid(row=0, column=2, padx=10, pady=5)
 
-# Target folder selection
-tk.Label(root, text="Target Folder:").grid(row=1, column=0, padx=10, pady=10, sticky="w")
+# Target folder
+tk.Label(root, text="Target Folder:").grid(row=1, column=0, padx=10, pady=5, sticky="e")
 target_entry = tk.Entry(root, width=50)
-target_entry.grid(row=1, column=1, padx=10, pady=10)
-target_button = tk.Button(root, text="Browse", command=select_target_folder)
-target_button.grid(row=1, column=2, padx=10, pady=10)
+target_entry.grid(row=1, column=1, padx=10, pady=5)
+tk.Button(root, text="Browse", command=lambda: browse_folder(target_entry)).grid(row=1, column=2, padx=10, pady=5)
 
-# Organize button
-organize_button = tk.Button(root, text="Organize Files", command=start_organizing, bg="green", fg="white")
-organize_button.grid(row=2, column=1, pady=20)
+# Keyword (optional)
+tk.Label(root, text="Keyword (optional):").grid(row=2, column=0, padx=10, pady=5, sticky="e")
+keyword_entry = tk.Entry(root, width=50)
+keyword_entry.grid(row=2, column=1, padx=10, pady=5)
+
+# Run button
+tk.Button(root, text="Sort Files", command=run_sorter).grid(row=3, column=0, columnspan=3, pady=20)
 
 # Run the application
 root.mainloop()
